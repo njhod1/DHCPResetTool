@@ -168,6 +168,31 @@ $btnReset.Add_Click({
 
     $selectedAdapters = $form.Tag
 
+    # Build confirmation message
+$confirmMessage = "You are about to reset the following adapters:`n`n"
+
+foreach ($adapterName in $selectedAdapters) {
+    $current = Get-IPState $adapterName
+    $confirmMessage += "$adapterName`n"
+    $confirmMessage += "  Current: $current`n"
+    $confirmMessage += "  After:   DHCP`n`n"
+}
+
+$confirmMessage += "Proceed with reset?"
+
+# Show confirmation dialog
+$confirm = [System.Windows.Forms.MessageBox]::Show(
+    $confirmMessage,
+    "Confirm Reset",
+    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+    [System.Windows.Forms.MessageBoxIcon]::Warning
+)
+
+if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) {
+    Show-Dialog "Cancelled." "Cancelled" "OK" | Out-Null
+    return
+}
+    
     if (-not $selectedAdapters) {
         Show-Dialog "Cancelled." "Cancelled" "OK" | Out-Null
         return
