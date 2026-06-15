@@ -31,8 +31,13 @@ $listBox.Size = New-Object System.Drawing.Size(440,200)
 $listBox.SelectionMode = "MultiExtended"
 $form.Controls.Add($listBox)
 
-# Load adapters
-$adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.InterfaceDescription -notmatch "Virtual|VPN|Bluetooth" }
+# Load adapters (Wi-Fi excluded)
+$adapters = Get-NetAdapter |
+    Where-Object {
+        $_.Status -eq "Up" -and
+        $_.InterfaceDescription -notmatch "Virtual|VPN|Bluetooth|Wi-Fi|Wireless"
+    }
+
 foreach ($a in $adapters) { [void]$listBox.Items.Add($a.Name) }
 
 # Reset button
@@ -60,7 +65,9 @@ $resetButton.Add_Click({
         return
     }
 
-    # Build confirmation dialog without interpolation
+    #--------------------------------------------------------
+    # BUILD CONFIRMATION DIALOG
+    #--------------------------------------------------------
     $confirmMessage = "You are about to reset the following adapters:`n`n"
 
     foreach ($adapterName in $selectedAdapters) {
@@ -84,13 +91,29 @@ $resetButton.Add_Click({
         return
     }
 
+    #--------------------------------------------------------
+    # LOG FILE SETUP
+    #--------------------------------------------------------
+    $logPath = "C:\Tools\DHCPResetTool\ResetLog.txt"
+    Add-Content -Path $logPath -Value ("----- " + (Get-Date) + " -----")
+
+    #--------------------------------------------------------
+    # PERFORM RESET + LOGGING
+    #--------------------------------------------------------
     foreach ($adapterName in $selectedAdapters) {
         try {
+            Add-Content -Path $logPath -Value ("Resetting adapter: " + $adapterName)
+
             Set-NetIPInterface -InterfaceAlias $adapterName -Dhcp Enabled -ErrorAction Stop
+            Add-Content -Path $logPath -Value "  DHCP enabled."
+
             Remove-NetIPAddress -InterfaceAlias $adapterName -Confirm:$false -ErrorAction SilentlyContinue
+            Add-Content -Path $logPath -Value "  Existing IP addresses removed."
+
+            Add-Content -Path $logPath -Value "  Reset successful.`n"
         }
         catch {
-            Write-Output ("Error resetting " + $adapterName + ": " + $_)
+            Add-Content -Path $logPath -Value ("  ERROR: " + $_ + "`n")
         }
     }
 
